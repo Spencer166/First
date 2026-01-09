@@ -1,0 +1,1732 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Spencer166/First/blob/main/Customer%20Churn\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ggIMbywvCk9Z"
+      },
+      "source": [
+        "# Customer Churn\n",
+        "\n"
+      ],
+      "id": "ggIMbywvCk9Z"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Y8ofgNbxCk9a"
+      },
+      "source": [
+        "# Set environment variables for sagemaker_studio imports\n",
+        "\n",
+        "import os\n",
+        "os.environ['DataZoneProjectId'] = 'czpctb61w8ydnt'\n",
+        "os.environ['DataZoneDomainId'] = 'dzd-3tygno1vifo67d'\n",
+        "os.environ['DataZoneEnvironmentId'] = 'dh4zpoqh679m7d'\n",
+        "os.environ['DataZoneDomainRegion'] = 'us-east-2'\n",
+        "\n",
+        "# create both a function and variable for metadata access\n",
+        "_resource_metadata = None\n",
+        "\n",
+        "def _get_resource_metadata():\n",
+        "    global _resource_metadata\n",
+        "    if _resource_metadata is None:\n",
+        "        _resource_metadata = {\n",
+        "            \"AdditionalMetadata\": {\n",
+        "                \"DataZoneProjectId\": \"czpctb61w8ydnt\",\n",
+        "                \"DataZoneDomainId\": \"dzd-3tygno1vifo67d\",\n",
+        "                \"DataZoneEnvironmentId\": \"dh4zpoqh679m7d\",\n",
+        "                \"DataZoneDomainRegion\": \"us-east-2\",\n",
+        "            }\n",
+        "        }\n",
+        "    return _resource_metadata\n",
+        "metadata = _get_resource_metadata()"
+      ],
+      "execution_count": 1,
+      "outputs": [],
+      "id": "Y8ofgNbxCk9a"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "69eXfw8ICk9b"
+      },
+      "source": [
+        "\"\"\"\n",
+        "Logging Configuration\n",
+        "\n",
+        "Purpose:\n",
+        "--------\n",
+        "This sets up the logging framework for code executed in the user namespace.\n",
+        "\"\"\"\n",
+        "\n",
+        "from typing import Optional\n",
+        "\n",
+        "\n",
+        "def _set_logging(log_dir: str, log_file: str, log_name: Optional[str] = None):\n",
+        "    import os\n",
+        "    import logging\n",
+        "    from logging.handlers import RotatingFileHandler\n",
+        "\n",
+        "    level = logging.INFO\n",
+        "    max_bytes = 5 * 1024 * 1024\n",
+        "    backup_count = 5\n",
+        "\n",
+        "    # fallback to /tmp dir on access, helpful for local dev setup\n",
+        "    try:\n",
+        "        os.makedirs(log_dir, exist_ok=True)\n",
+        "    except Exception:\n",
+        "        log_dir = \"/tmp/kernels/\"\n",
+        "\n",
+        "    os.makedirs(log_dir, exist_ok=True)\n",
+        "    log_path = os.path.join(log_dir, log_file)\n",
+        "\n",
+        "    logger = logging.getLogger() if not log_name else logging.getLogger(log_name)\n",
+        "    logger.handlers = []\n",
+        "    logger.setLevel(level)\n",
+        "\n",
+        "    formatter = logging.Formatter(\"%(asctime)s - %(name)s - %(levelname)s - %(message)s\")\n",
+        "\n",
+        "    # Rotating file handler\n",
+        "    fh = RotatingFileHandler(filename=log_path, maxBytes=max_bytes, backupCount=backup_count, encoding=\"utf-8\")\n",
+        "    fh.setFormatter(formatter)\n",
+        "    logger.addHandler(fh)\n",
+        "\n",
+        "    logger.info(f\"Logging initialized for {log_name}.\")\n",
+        "\n",
+        "\n",
+        "_set_logging(\"/var/log/computeEnvironments/kernel/\", \"kernel.log\")\n",
+        "_set_logging(\"/var/log/studio/data-notebook-kernel-server/\", \"metrics.log\", \"metrics\")"
+      ],
+      "execution_count": 2,
+      "outputs": [],
+      "id": "69eXfw8ICk9b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 383
+        },
+        "id": "0hzoPcHRCk9b",
+        "outputId": "efe40dbb-b10d-40c5-eeb8-e0169b8a6f81"
+      },
+      "source": [
+        "import logging\n",
+        "from sagemaker_studio import ClientConfig, sqlutils, sparkutils, dataframeutils\n",
+        "\n",
+        "logger = logging.getLogger(__name__)\n",
+        "logger.info(\"Initializing sparkutils\")\n",
+        "spark = sparkutils.init()\n",
+        "logger.info(\"Finished initializing sparkutils\")"
+      ],
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "error",
+          "ename": "ModuleNotFoundError",
+          "evalue": "No module named 'sagemaker_studio'",
+          "traceback": [
+            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+            "\u001b[0;31mModuleNotFoundError\u001b[0m                       Traceback (most recent call last)",
+            "\u001b[0;32m/tmp/ipython-input-2582715611.py\u001b[0m in \u001b[0;36m<cell line: 0>\u001b[0;34m()\u001b[0m\n\u001b[1;32m      1\u001b[0m \u001b[0;32mimport\u001b[0m \u001b[0mlogging\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m----> 2\u001b[0;31m \u001b[0;32mfrom\u001b[0m \u001b[0msagemaker_studio\u001b[0m \u001b[0;32mimport\u001b[0m \u001b[0mClientConfig\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0msqlutils\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0msparkutils\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mdataframeutils\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      3\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      4\u001b[0m \u001b[0mlogger\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mlogging\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mgetLogger\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0m__name__\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      5\u001b[0m \u001b[0mlogger\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0minfo\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m\"Initializing sparkutils\"\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;31mModuleNotFoundError\u001b[0m: No module named 'sagemaker_studio'",
+            "",
+            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0;32m\nNOTE: If your import is failing due to a missing package, you can\nmanually install dependencies using either !pip or !apt.\n\nTo view examples of installing some common dependencies, click the\n\"Open Examples\" button below.\n\u001b[0;31m---------------------------------------------------------------------------\u001b[0m\n"
+          ],
+          "errorDetails": {
+            "actions": [
+              {
+                "action": "open_url",
+                "actionText": "Open Examples",
+                "url": "/notebooks/snippets/importing_libraries.ipynb"
+              }
+            ]
+          }
+        }
+      ],
+      "id": "0hzoPcHRCk9b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "OG_-8UL9Ck9b"
+      },
+      "source": [
+        "def _reset_os_path():\n",
+        "    \"\"\"\n",
+        "    Reset the process's working directory to handle mount timing issues.\n",
+        "\n",
+        "    This function resolves a race condition where the Python process starts\n",
+        "    before the filesystem mount is complete, causing the process to reference\n",
+        "    old mount paths and inodes. By explicitly changing to the mounted directory\n",
+        "    (/home/sagemaker-user), we ensure the process uses the correct, up-to-date\n",
+        "    mount point.\n",
+        "\n",
+        "    The function logs stat information (device ID and inode) before and after\n",
+        "    the directory change to verify that the working directory is properly\n",
+        "    updated to reference the new mount.\n",
+        "\n",
+        "    Note:\n",
+        "        This is executed at module import time to ensure the fix is applied\n",
+        "        as early as possible in the kernel initialization process.\n",
+        "    \"\"\"\n",
+        "    try:\n",
+        "        import os\n",
+        "        import logging\n",
+        "\n",
+        "        logger = logging.getLogger(__name__)\n",
+        "        logger.info(\"---------Before------\")\n",
+        "        logger.info(\"CWD: %s\", os.getcwd())\n",
+        "        logger.info(\"stat('.'): %s %s\", os.stat('.').st_dev, os.stat('.').st_ino)\n",
+        "        logger.info(\"stat('/home/sagemaker-user'): %s %s\", os.stat('/home/sagemaker-user').st_dev, os.stat('/home/sagemaker-user').st_ino)\n",
+        "\n",
+        "        os.chdir(\"/home/sagemaker-user\")\n",
+        "\n",
+        "        logger.info(\"---------After------\")\n",
+        "        logger.info(\"CWD: %s\", os.getcwd())\n",
+        "        logger.info(\"stat('.'): %s %s\", os.stat('.').st_dev, os.stat('.').st_ino)\n",
+        "        logger.info(\"stat('/home/sagemaker-user'): %s %s\", os.stat('/home/sagemaker-user').st_dev, os.stat('/home/sagemaker-user').st_ino)\n",
+        "    except Exception as e:\n",
+        "        logger.exception(f\"Failed to reset working directory: {e}\")\n",
+        "\n",
+        "_reset_os_path()"
+      ],
+      "execution_count": null,
+      "outputs": [],
+      "id": "OG_-8UL9Ck9b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "TAyg-QvICk9b",
+        "outputId": "c842e2e3-873b-4adc-a3e8-8e77b13349dc"
+      },
+      "source": [
+        "import subprocess\n",
+        "import sys\n",
+        "\n",
+        "# Install shap\n",
+        "print(\"Installing shap...\")\n",
+        "subprocess.check_call([sys.executable, \"-m\", \"pip\", \"install\", \"shap\", \"--quiet\"])\n",
+        "\n",
+        "# Install smdebug\n",
+        "print(\"Installing smdebug...\")\n",
+        "subprocess.check_call([sys.executable, \"-m\", \"pip\", \"install\", \"smdebug\", \"--upgrade\", \"--quiet\"])\n",
+        "\n",
+        "print(\"Installation complete!\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Installing shap...\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": "\u001b[31mERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\nsagemaker-studio 1.1.3 requires numpy<2.3.0,>=1.26.4, but you have numpy 2.3.5 which is incompatible.\u001b[0m\u001b[31m\n\u001b[0m"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Installing smdebug...\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": "\u001b[31mERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\ndatabricks-sdk 0.73.0 requires protobuf!=5.26.*,!=5.27.*,!=5.28.*,!=5.29.0,!=5.29.1,!=5.29.2,!=5.29.3,!=5.29.4,!=6.30.0,!=6.30.1,!=6.31.0,<7.0,>=4.25.8, but you have protobuf 3.20.3 which is incompatible.\ngrpcio-status 1.76.0 requires protobuf<7.0.0,>=6.31.1, but you have protobuf 3.20.3 which is incompatible.\nopentelemetry-proto 1.38.0 requires protobuf<7.0,>=5.0, but you have protobuf 3.20.3 which is incompatible.\ntensorflow 2.20.0 requires protobuf>=5.28.0, but you have protobuf 3.20.3 which is incompatible.\namzn-datanotebooks-kernel 0.1.4.dev20251113230423 requires protobuf<7.0.0,>=6.30.0, but you have protobuf 3.20.3 which is incompatible.\u001b[0m\u001b[31m\n\u001b[0m"
+        },
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Installation complete!\n"
+        }
+      ],
+      "id": "TAyg-QvICk9b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "ofwfsH7bCk9c",
+        "outputId": "56744904-73a9-4359-cf5d-b17da68af4bf"
+      },
+      "source": [
+        "import re\n",
+        "import s3fs\n",
+        "import shap\n",
+        "import time\n",
+        "import boto3\n",
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "\n",
+        "from itertools import islice\n",
+        "import matplotlib.pyplot as plt"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "ofwfsH7bCk9c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "FQmFiB0pCk9c",
+        "outputId": "eb307a57-56d0-4e58-af7c-65622e94274e"
+      },
+      "source": [
+        "default_bucket = \"amazon-sagemaker-072468085456-us-east-2-czpctb61w8ydnt\""
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "FQmFiB0pCk9c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "957cxKHZCk9c",
+        "outputId": "84c4a676-9467-40be-c855-ce8deff91051"
+      },
+      "source": [
+        "sagemaker_session = sagemaker.Session()\n",
+        "role = sagemaker.get_execution_role()\n",
+        "region = sagemaker_session.boto_region_name"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "sagemaker.config INFO - Applied value from config key = SageMaker.PythonSDK.Modules.Session.DefaultS3Bucket\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "sagemaker.config INFO - Applied value from config key = SageMaker.PythonSDK.Modules.Session.DefaultS3ObjectKeyPrefix\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "sagemaker.config INFO - Applied value from config key = SageMaker.PythonSDK.Modules.Session.DefaultS3Bucket\n"
+        },
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "sagemaker.config INFO - Applied value from config key = SageMaker.PythonSDK.Modules.Session.DefaultS3ObjectKeyPrefix\n"
+        }
+      ],
+      "id": "957cxKHZCk9c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "OR88sd6FCk9c",
+        "outputId": "e13a8a85-f2dc-4d1e-99bc-62db026046b6"
+      },
+      "source": [
+        "def preprocess_data(file_path):\n",
+        "    df = pd.read_csv(file_path)\n",
+        "    ## Convert to datetime columns\n",
+        "    df[\"firstorder\"]=pd.to_datetime(df[\"firstorder\"],errors='coerce')\n",
+        "    df[\"lastorder\"] = pd.to_datetime(df[\"lastorder\"],errors='coerce')\n",
+        "    ## Drop Rows with null values\n",
+        "    df = df.dropna()\n",
+        "    ## Create Column which gives the days between the last order and the first order\n",
+        "    df[\"first_last_days_diff\"] = (df['lastorder']-df['firstorder']).dt.days\n",
+        "    ## Create Column which gives the days between when the customer record was created and the first order\n",
+        "    df['created'] = pd.to_datetime(df['created'])\n",
+        "    df['created_first_days_diff']=(df['created']-df['firstorder']).dt.days\n",
+        "    ## Drop Columns\n",
+        "    df.drop(['custid','created','firstorder','lastorder'],axis=1,inplace=True)\n",
+        "    ## Apply one hot encoding on favday and city columns\n",
+        "    df = pd.get_dummies(df,prefix=['favday','city'],columns=['favday','city'])\n",
+        "    return df"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "OR88sd6FCk9c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "WZO9x4gECk9c",
+        "outputId": "724d42bc-b89d-4644-e02a-73f2cf2f6789"
+      },
+      "source": [
+        "storedata = preprocess_data(f\"s3://{default_bucket}/data/storedata_total.csv\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "WZO9x4gECk9c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "BkrIdoMpCk9c",
+        "outputId": "f8774cdb-54e7-4da8-f80c-cdeca892e93d"
+      },
+      "source": [
+        "storedata.head()"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "execute_result",
+          "execution_count": null,
+          "data": {
+            "text/plain": "   retained  esent   eopenrate  ...  city_BOM  city_DEL  city_MAA\n0         0     29  100.000000  ...     False      True     False\n1         1     95   92.631579  ...     False      True     False\n2         0      0    0.000000  ...     False      True     False\n3         0      0    0.000000  ...      True     False     False\n4         1     30   90.000000  ...      True     False     False\n\n[5 rows x 22 columns]",
+            "text/html": "<div>\n<style scoped>\n    .dataframe tbody tr th:only-of-type {\n        vertical-align: middle;\n    }\n\n    .dataframe tbody tr th {\n        vertical-align: top;\n    }\n\n    .dataframe thead th {\n        text-align: right;\n    }\n</style>\n<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: right;\">\n      <th></th>\n      <th>retained</th>\n      <th>esent</th>\n      <th>eopenrate</th>\n      <th>eclickrate</th>\n      <th>avgorder</th>\n      <th>ordfreq</th>\n      <th>paperless</th>\n      <th>refill</th>\n      <th>doorstep</th>\n      <th>first_last_days_diff</th>\n      <th>created_first_days_diff</th>\n      <th>favday_Friday</th>\n      <th>favday_Monday</th>\n      <th>favday_Saturday</th>\n      <th>favday_Sunday</th>\n      <th>favday_Thursday</th>\n      <th>favday_Tuesday</th>\n      <th>favday_Wednesday</th>\n      <th>city_BLR</th>\n      <th>city_BOM</th>\n      <th>city_DEL</th>\n      <th>city_MAA</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <th>0</th>\n      <td>0</td>\n      <td>29</td>\n      <td>100.000000</td>\n      <td>3.448276</td>\n      <td>14.52</td>\n      <td>0.000000</td>\n      <td>0</td>\n      <td>0</td>\n      <td>0</td>\n      <td>0</td>\n      <td>-317</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n    </tr>\n    <tr>\n      <th>1</th>\n      <td>1</td>\n      <td>95</td>\n      <td>92.631579</td>\n      <td>10.526316</td>\n      <td>83.69</td>\n      <td>0.181641</td>\n      <td>1</td>\n      <td>1</td>\n      <td>1</td>\n      <td>1024</td>\n      <td>-103</td>\n      <td>True</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n    </tr>\n    <tr>\n      <th>2</th>\n      <td>0</td>\n      <td>0</td>\n      <td>0.000000</td>\n      <td>0.000000</td>\n      <td>33.58</td>\n      <td>0.059908</td>\n      <td>0</td>\n      <td>0</td>\n      <td>0</td>\n      <td>217</td>\n      <td>-59</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n    </tr>\n    <tr>\n      <th>3</th>\n      <td>0</td>\n      <td>0</td>\n      <td>0.000000</td>\n      <td>0.000000</td>\n      <td>54.96</td>\n      <td>0.000000</td>\n      <td>0</td>\n      <td>0</td>\n      <td>0</td>\n      <td>0</td>\n      <td>-157</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n      <td>False</td>\n    </tr>\n    <tr>\n      <th>4</th>\n      <td>1</td>\n      <td>30</td>\n      <td>90.000000</td>\n      <td>13.333333</td>\n      <td>111.91</td>\n      <td>0.008850</td>\n      <td>0</td>\n      <td>0</td>\n      <td>0</td>\n      <td>791</td>\n      <td>-2</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>False</td>\n      <td>True</td>\n      <td>False</td>\n      <td>False</td>\n    </tr>\n  </tbody>\n</table>\n</div>",
+            "application/vnd.datanotebooks+parquet+snappy": {
+              "data": "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Im51bXB5X3R5cGUiOiAib2JqZWN0IiwgIm1ldGFkYXRhIjogeyJlbmNvZGluZyI6ICJVVEYtOCJ9fV0sICJjb2x1bW5zIjogW3sibmFtZSI6ICJyZXRhaW5lZCIsICJmaWVsZF9uYW1lIjogInJldGFpbmVkIiwgInBhbmRhc190eXBlIjogImludDY0IiwgIm51bXB5X3R5cGUiOiAiaW50NjQiLCAibWV0YWRhdGEiOiBudWxsfSwgeyJuYW1lIjogImVzZW50IiwgImZpZWxkX25hbWUiOiAiZXNlbnQiLCAicGFuZGFzX3R5cGUiOiAiaW50NjQiLCAibnVtcHlfdHlwZSI6ICJpbnQ2NCIsICJtZXRhZGF0YSI6IG51bGx9LCB7Im5hbWUiOiAiZW9wZW5yYXRlIiwgImZpZWxkX25hbWUiOiAiZW9wZW5yYXRlIiwgInBhbmRhc190eXBlIjogImZsb2F0NjQiLCAibnVtcHlfdHlwZSI6ICJmbG9hdDY0IiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJlY2xpY2tyYXRlIiwgImZpZWxkX25hbWUiOiAiZWNsaWNrcmF0ZSIsICJwYW5kYXNfdHlwZSI6ICJmbG9hdDY0IiwgIm51bXB5X3R5cGUiOiAiZmxvYXQ2NCIsICJtZXRhZGF0YSI6IG51bGx9LCB7Im5hbWUiOiAiYXZnb3JkZXIiLCAiZmllbGRfbmFtZSI6ICJhdmdvcmRlciIsICJwYW5kYXNfdHlwZSI6ICJmbG9hdDY0IiwgIm51bXB5X3R5cGUiOiAiZmxvYXQ2NCIsICJtZXRhZGF0YSI6IG51bGx9LCB7Im5hbWUiOiAib3JkZnJlcSIsICJmaWVsZF9uYW1lIjogIm9yZGZyZXEiLCAicGFuZGFzX3R5cGUiOiAiZmxvYXQ2NCIsICJudW1weV90eXBlIjogImZsb2F0NjQiLCAibWV0YWRhdGEiOiBudWxsfSwgeyJuYW1lIjogInBhcGVybGVzcyIsICJmaWVsZF9uYW1lIjogInBhcGVybGVzcyIsICJwYW5kYXNfdHlwZSI6ICJpbnQ2NCIsICJudW1weV90eXBlIjogImludDY0IiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJyZWZpbGwiLCAiZmllbGRfbmFtZSI6ICJyZWZpbGwiLCAicGFuZGFzX3R5cGUiOiAiaW50NjQiLCAibnVtcHlfdHlwZSI6ICJpbnQ2NCIsICJtZXRhZGF0YSI6IG51bGx9LCB7Im5hbWUiOiAiZG9vcnN0ZXAiLCAiZmllbGRfbmFtZSI6ICJkb29yc3RlcCIsICJwYW5kYXNfdHlwZSI6ICJpbnQ2NCIsICJudW1weV90eXBlIjogImludDY0IiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJmaXJzdF9sYXN0X2RheXNfZGlmZiIsICJmaWVsZF9uYW1lIjogImZpcnN0X2xhc3RfZGF5c19kaWZmIiwgInBhbmRhc190eXBlIjogImludDY0IiwgIm51bXB5X3R5cGUiOiAiaW50NjQiLCAibWV0YWRhdGEiOiBudWxsfSwgeyJuYW1lIjogImNyZWF0ZWRfZmlyc3RfZGF5c19kaWZmIiwgImZpZWxkX25hbWUiOiAiY3JlYXRlZF9maXJzdF9kYXlzX2RpZmYiLCAicGFuZGFzX3R5cGUiOiAiaW50NjQiLCAibnVtcHlfdHlwZSI6ICJpbnQ2NCIsICJtZXRhZGF0YSI6IG51bGx9LCB7Im5hbWUiOiAiZmF2ZGF5X0ZyaWRheSIsICJmaWVsZF9uYW1lIjogImZhdmRheV9GcmlkYXkiLCAicGFuZGFzX3R5cGUiOiAiYm9vbCIsICJudW1weV90eXBlIjogImJvb2wiLCAibWV0YWRhdGEiOiBudWxsfSwgeyJuYW1lIjogImZhdmRheV9Nb25kYXkiLCAiZmllbGRfbmFtZSI6ICJmYXZkYXlfTW9uZGF5IiwgInBhbmRhc190eXBlIjogImJvb2wiLCAibnVtcHlfdHlwZSI6ICJib29sIiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJmYXZkYXlfU2F0dXJkYXkiLCAiZmllbGRfbmFtZSI6ICJmYXZkYXlfU2F0dXJkYXkiLCAicGFuZGFzX3R5cGUiOiAiYm9vbCIsICJudW1weV90eXBlIjogImJvb2wiLCAibWV0YWRhdGEiOiBudWxsfSwgeyJuYW1lIjogImZhdmRheV9TdW5kYXkiLCAiZmllbGRfbmFtZSI6ICJmYXZkYXlfU3VuZGF5IiwgInBhbmRhc190eXBlIjogImJvb2wiLCAibnVtcHlfdHlwZSI6ICJib29sIiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJmYXZkYXlfVGh1cnNkYXkiLCAiZmllbGRfbmFtZSI6ICJmYXZkYXlfVGh1cnNkYXkiLCAicGFuZGFzX3R5cGUiOiAiYm9vbCIsICJudW1weV90eXBlIjogImJvb2wiLCAibWV0YWRhdGEiOiBudWxsfSwgeyJuYW1lIjogImZhdmRheV9UdWVzZGF5IiwgImZpZWxkX25hbWUiOiAiZmF2ZGF5X1R1ZXNkYXkiLCAicGFuZGFzX3R5cGUiOiAiYm9vbCIsICJudW1weV90eXBlIjogImJvb2wiLCAibWV0YWRhdGEiOiBudWxsfSwgeyJuYW1lIjogImZhdmRheV9XZWRuZXNkYXkiLCAiZmllbGRfbmFtZSI6ICJmYXZkYXlfV2VkbmVzZGF5IiwgInBhbmRhc190eXBlIjogImJvb2wiLCAibnVtcHlfdHlwZSI6ICJib29sIiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJjaXR5X0JMUiIsICJmaWVsZF9uYW1lIjogImNpdHlfQkxSIiwgInBhbmRhc190eXBlIjogImJvb2wiLCAibnVtcHlfdHlwZSI6ICJib29sIiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJjaXR5X0JPTSIsICJmaWVsZF9uYW1lIjogImNpdHlfQk9NIiwgInBhbmRhc190eXBlIjogImJvb2wiLCAibnVtcHlfdHlwZSI6ICJib29sIiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJjaXR5X0RFTCIsICJmaWVsZF9uYW1lIjogImNpdHlfREVMIiwgInBhbmRhc190eXBlIjogImJvb2wiLCAibnVtcHlfdHlwZSI6ICJib29sIiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6ICJjaXR5X01BQSIsICJmaWVsZF9uYW1lIjogImNpdHlfTUFBIiwgInBhbmRhc190eXBlIjogImJvb2wiLCAibnVtcHlfdHlwZSI6ICJib29sIiwgIm1ldGFkYXRhIjogbnVsbH0sIHsibmFtZSI6IG51bGwsICJmaWVsZF9uYW1lIjogIl9faW5kZXhfbGV2ZWxfMF9fIiwgInBhbmRhc190eXBlIjogImludDY0IiwgIm51bXB5X3R5cGUiOiAiaW50NjQiLCAibWV0YWRhdGEiOiBudWxsfV0sICJjcmVhdG9yIjogeyJsaWJyYXJ5IjogInB5YXJyb3ciLCAidmVyc2lvbiI6ICIyMS4wLjAifSwgInBhbmRhc192ZXJzaW9uIjogIjIuMy4zIn0AGAxBUlJPVzpzY2hlbWEY4C0vLy8vL3lBUkFBQVFBQUFBQUFBS0FBNEFCZ0FGQUFnQUNnQUFBQUFCQkFBUUFBQUFBQUFLQUF3QUFBQUVBQWdBQ2dBQUFQZ0xBQUFFQUFBQUFRQUFBQXdBQUFBSUFBd0FCQUFJQUFnQUFBRFFDd0FBQkFBQUFNRUxBQUI3SW1sdVpHVjRYMk52YkhWdGJuTWlPaUJiSWw5ZmFXNWtaWGhmYkdWMlpXeGZNRjlmSWwwc0lDSmpiMngxYlc1ZmFXNWtaWGhsY3lJNklGdDdJbTVoYldVaU9pQnVkV3hzTENBaVptbGxiR1JmYm1GdFpTSTZJRzUxYkd3c0lDSndZVzVrWVhOZmRIbHdaU0k2SUNKMWJtbGpiMlJsSWl3Z0ltNTFiWEI1WDNSNWNHVWlPaUFpYjJKcVpXTjBJaXdnSW0xbGRHRmtZWFJoSWpvZ2V5SmxibU52WkdsdVp5STZJQ0pWVkVZdE9DSjlmVjBzSUNKamIyeDFiVzV6SWpvZ1czc2libUZ0WlNJNklDSnlaWFJoYVc1bFpDSXNJQ0ptYVdWc1pGOXVZVzFsSWpvZ0luSmxkR0ZwYm1Wa0lpd2dJbkJoYm1SaGMxOTBlWEJsSWpvZ0ltbHVkRFkwSWl3Z0ltNTFiWEI1WDNSNWNHVWlPaUFpYVc1ME5qUWlMQ0FpYldWMFlXUmhkR0VpT2lCdWRXeHNmU3dnZXlKdVlXMWxJam9nSW1WelpXNTBJaXdnSW1acFpXeGtYMjVoYldVaU9pQWlaWE5sYm5RaUxDQWljR0Z1WkdGelgzUjVjR1VpT2lBaWFXNTBOalFpTENBaWJuVnRjSGxmZEhsd1pTSTZJQ0pwYm5RMk5DSXNJQ0p0WlhSaFpHRjBZU0k2SUc1MWJHeDlMQ0I3SW01aGJXVWlPaUFpWlc5d1pXNXlZWFJsSWl3Z0ltWnBaV3hrWDI1aGJXVWlPaUFpWlc5d1pXNXlZWFJsSWl3Z0luQmhibVJoYzE5MGVYQmxJam9nSW1ac2IyRjBOalFpTENBaWJuVnRjSGxmZEhsd1pTSTZJQ0ptYkc5aGREWTBJaXdnSW0xbGRHRmtZWFJoSWpvZ2JuVnNiSDBzSUhzaWJtRnRaU0k2SUNKbFkyeHBZMnR5WVhSbElpd2dJbVpwWld4a1gyNWhiV1VpT2lBaVpXTnNhV05yY21GMFpTSXNJQ0p3WVc1a1lYTmZkSGx3WlNJNklDSm1iRzloZERZMElpd2dJbTUxYlhCNVgzUjVjR1VpT2lBaVpteHZZWFEyTkNJc0lDSnRaWFJoWkdGMFlTSTZJRzUxYkd4OUxDQjdJbTVoYldVaU9pQWlZWFpuYjNKa1pYSWlMQ0FpWm1sbGJHUmZibUZ0WlNJNklDSmhkbWR2Y21SbGNpSXNJQ0p3WVc1a1lYTmZkSGx3WlNJNklDSm1iRzloZERZMElpd2dJbTUxYlhCNVgzUjVjR1VpT2lBaVpteHZZWFEyTkNJc0lDSnRaWFJoWkdGMFlTSTZJRzUxYkd4OUxDQjdJbTVoYldVaU9pQWliM0prWm5KbGNTSXNJQ0ptYVdWc1pGOXVZVzFsSWpvZ0ltOXlaR1p5WlhFaUxDQWljR0Z1WkdGelgzUjVjR1VpT2lBaVpteHZZWFEyTkNJc0lDSnVkVzF3ZVY5MGVYQmxJam9nSW1ac2IyRjBOalFpTENBaWJXVjBZV1JoZEdFaU9pQnVkV3hzZlN3Z2V5SnVZVzFsSWpvZ0luQmhjR1Z5YkdWemN5SXNJQ0ptYVdWc1pGOXVZVzFsSWpvZ0luQmhjR1Z5YkdWemN5SXNJQ0p3WVc1a1lYTmZkSGx3WlNJNklDSnBiblEyTkNJc0lDSnVkVzF3ZVY5MGVYQmxJam9nSW1sdWREWTBJaXdnSW0xbGRHRmtZWFJoSWpvZ2JuVnNiSDBzSUhzaWJtRnRaU0k2SUNKeVpXWnBiR3dpTENBaVptbGxiR1JmYm1GdFpTSTZJQ0p5WldacGJHd2lMQ0FpY0dGdVpHRnpYM1I1Y0dVaU9pQWlhVzUwTmpRaUxDQWliblZ0Y0hsZmRIbHdaU0k2SUNKcGJuUTJOQ0lzSUNKdFpYUmhaR0YwWVNJNklHNTFiR3g5TENCN0ltNWhiV1VpT2lBaVpHOXZjbk4wWlhBaUxDQWlabWxsYkdSZmJtRnRaU0k2SUNKa2IyOXljM1JsY0NJc0lDSndZVzVrWVhOZmRIbHdaU0k2SUNKcGJuUTJOQ0lzSUNKdWRXMXdlVjkwZVhCbElqb2dJbWx1ZERZMElpd2dJbTFsZEdGa1lYUmhJam9nYm5Wc2JIMHNJSHNpYm1GdFpTSTZJQ0ptYVhKemRGOXNZWE4wWDJSaGVYTmZaR2xtWmlJc0lDSm1hV1ZzWkY5dVlXMWxJam9nSW1acGNuTjBYMnhoYzNSZlpHRjVjMTlrYVdabUlpd2dJbkJoYm1SaGMxOTBlWEJsSWpvZ0ltbHVkRFkwSWl3Z0ltNTFiWEI1WDNSNWNHVWlPaUFpYVc1ME5qUWlMQ0FpYldWMFlXUmhkR0VpT2lCdWRXeHNmU3dnZXlKdVlXMWxJam9nSW1OeVpXRjBaV1JmWm1seWMzUmZaR0Y1YzE5a2FXWm1JaXdnSW1acFpXeGtYMjVoYldVaU9pQWlZM0psWVhSbFpGOW1hWEp6ZEY5a1lYbHpYMlJwWm1ZaUxDQWljR0Z1WkdGelgzUjVjR1VpT2lBaWFXNTBOalFpTENBaWJuVnRjSGxmZEhsd1pTSTZJQ0pwYm5RMk5DSXNJQ0p0WlhSaFpHRjBZU0k2SUc1MWJHeDlMQ0I3SW01aGJXVWlPaUFpWm1GMlpHRjVYMFp5YVdSaGVTSXNJQ0ptYVdWc1pGOXVZVzFsSWpvZ0ltWmhkbVJoZVY5R2NtbGtZWGtpTENBaWNHRnVaR0Z6WDNSNWNHVWlPaUFpWW05dmJDSXNJQ0p1ZFcxd2VWOTBlWEJsSWpvZ0ltSnZiMndpTENBaWJXVjBZV1JoZEdFaU9pQnVkV3hzZlN3Z2V5SnVZVzFsSWpvZ0ltWmhkbVJoZVY5TmIyNWtZWGtpTENBaVptbGxiR1JmYm1GdFpTSTZJQ0ptWVhaa1lYbGZUVzl1WkdGNUlpd2dJbkJoYm1SaGMxOTBlWEJsSWpvZ0ltSnZiMndpTENBaWJuVnRjSGxmZEhsd1pTSTZJQ0ppYjI5c0lpd2dJbTFsZEdGa1lYUmhJam9nYm5Wc2JIMHNJSHNpYm1GdFpTSTZJQ0ptWVhaa1lYbGZVMkYwZFhKa1lYa2lMQ0FpWm1sbGJHUmZibUZ0WlNJNklDSm1ZWFprWVhsZlUyRjBkWEprWVhraUxDQWljR0Z1WkdGelgzUjVjR1VpT2lBaVltOXZiQ0lzSUNKdWRXMXdlVjkwZVhCbElqb2dJbUp2YjJ3aUxDQWliV1YwWVdSaGRHRWlPaUJ1ZFd4c2ZTd2dleUp1WVcxbElqb2dJbVpoZG1SaGVWOVRkVzVrWVhraUxDQWlabWxsYkdSZmJtRnRaU0k2SUNKbVlYWmtZWGxmVTNWdVpHRjVJaXdnSW5CaGJtUmhjMTkwZVhCbElqb2dJbUp2YjJ3aUxDQWliblZ0Y0hsZmRIbHdaU0k2SUNKaWIyOXNJaXdnSW0xbGRHRmtZWFJoSWpvZ2JuVnNiSDBzSUhzaWJtRnRaU0k2SUNKbVlYWmtZWGxmVkdoMWNuTmtZWGtpTENBaVptbGxiR1JmYm1GdFpTSTZJQ0ptWVhaa1lYbGZWR2gxY25Oa1lYa2lMQ0FpY0dGdVpHRnpYM1I1Y0dVaU9pQWlZbTl2YkNJc0lDSnVkVzF3ZVY5MGVYQmxJam9nSW1KdmIyd2lMQ0FpYldWMFlXUmhkR0VpT2lCdWRXeHNmU3dnZXlKdVlXMWxJam9nSW1aaGRtUmhlVjlVZFdWelpHRjVJaXdnSW1acFpXeGtYMjVoYldVaU9pQWlabUYyWkdGNVgxUjFaWE5rWVhraUxDQWljR0Z1WkdGelgzUjVjR1VpT2lBaVltOXZiQ0lzSUNKdWRXMXdlVjkwZVhCbElqb2dJbUp2YjJ3aUxDQWliV1YwWVdSaGRHRWlPaUJ1ZFd4c2ZTd2dleUp1WVcxbElqb2dJbVpoZG1SaGVWOVhaV1J1WlhOa1lYa2lMQ0FpWm1sbGJHUmZibUZ0WlNJNklDSm1ZWFprWVhsZlYyVmtibVZ6WkdGNUlpd2dJbkJoYm1SaGMxOTBlWEJsSWpvZ0ltSnZiMndpTENBaWJuVnRjSGxmZEhsd1pTSTZJQ0ppYjI5c0lpd2dJbTFsZEdGa1lYUmhJam9nYm5Wc2JIMHNJSHNpYm1GdFpTSTZJQ0pqYVhSNVgwSk1VaUlzSUNKbWFXVnNaRjl1WVcxbElqb2dJbU5wZEhsZlFreFNJaXdnSW5CaGJtUmhjMTkwZVhCbElqb2dJbUp2YjJ3aUxDQWliblZ0Y0hsZmRIbHdaU0k2SUNKaWIyOXNJaXdnSW0xbGRHRmtZWFJoSWpvZ2JuVnNiSDBzSUhzaWJtRnRaU0k2SUNKamFYUjVYMEpQVFNJc0lDSm1hV1ZzWkY5dVlXMWxJam9nSW1OcGRIbGZRazlOSWl3Z0luQmhibVJoYzE5MGVYQmxJam9nSW1KdmIyd2lMQ0FpYm5WdGNIbGZkSGx3WlNJNklDSmliMjlzSWl3Z0ltMWxkR0ZrWVhSaElqb2diblZzYkgwc0lIc2libUZ0WlNJNklDSmphWFI1WDBSRlRDSXNJQ0ptYVdWc1pGOXVZVzFsSWpvZ0ltTnBkSGxmUkVWTUlpd2dJbkJoYm1SaGMxOTBlWEJsSWpvZ0ltSnZiMndpTENBaWJuVnRjSGxmZEhsd1pTSTZJQ0ppYjI5c0lpd2dJbTFsZEdGa1lYUmhJam9nYm5Wc2JIMHNJSHNpYm1GdFpTSTZJQ0pqYVhSNVgwMUJRU0lzSUNKbWFXVnNaRjl1WVcxbElqb2dJbU5wZEhsZlRVRkJJaXdnSW5CaGJtUmhjMTkwZVhCbElqb2dJbUp2YjJ3aUxDQWliblZ0Y0hsZmRIbHdaU0k2SUNKaWIyOXNJaXdnSW0xbGRHRmtZWFJoSWpvZ2JuVnNiSDBzSUhzaWJtRnRaU0k2SUc1MWJHd3NJQ0ptYVdWc1pGOXVZVzFsSWpvZ0lsOWZhVzVrWlhoZmJHVjJaV3hmTUY5Zklpd2dJbkJoYm1SaGMxOTBlWEJsSWpvZ0ltbHVkRFkwSWl3Z0ltNTFiWEI1WDNSNWNHVWlPaUFpYVc1ME5qUWlMQ0FpYldWMFlXUmhkR0VpT2lCdWRXeHNmVjBzSUNKamNtVmhkRzl5SWpvZ2V5SnNhV0p5WVhKNUlqb2dJbkI1WVhKeWIzY2lMQ0FpZG1WeWMybHZiaUk2SUNJeU1TNHdMakFpZlN3Z0luQmhibVJoYzE5MlpYSnphVzl1SWpvZ0lqSXVNeTR6SW4wQUFBQUdBQUFBY0dGdVpHRnpBQUFYQUFBQXVBUUFBSFFFQUFBOEJBQUFDQVFBQU5RREFBQ2tBd0FBYkFNQUFEZ0RBQUFBQXdBQXZBSUFBSGdDQUFCQUFnQUFEQUlBQU5nQkFBQ2tBUUFBY0FFQUFEd0JBQUFFQVFBQTFBQUFBS1FBQUFCMEFBQUFSQUFBQUFRQUFBQzArLy8vQUFBQkFoQUFBQUFrQUFBQUJBQUFBQUFBQUFBUkFBQUFYMTlwYm1SbGVGOXNaWFpsYkY4d1gxOEFBQUNzKy8vL0FBQUFBVUFBQUFEdysvLy9BQUFCQmhBQUFBQWNBQUFBQkFBQUFBQUFBQUFJQUFBQVkybDBlVjlOUVVFQUFBQUFLUDcvL3h6OC8vOEFBQUVHRUFBQUFCd0FBQUFFQUFBQUFBQUFBQWdBQUFCamFYUjVYMFJGVEFBQUFBQlUvdi8vU1B6Ly93QUFBUVlRQUFBQUhBQUFBQVFBQUFBQUFBQUFDQUFBQUdOcGRIbGZRazlOQUFBQUFJRCsvLzkwL1AvL0FBQUJCaEFBQUFBY0FBQUFCQUFBQUFBQUFBQUlBQUFBWTJsMGVWOUNURklBQUFBQXJQNy8vNkQ4Ly84QUFBRUdFQUFBQUNRQUFBQUVBQUFBQUFBQUFCQUFBQUJtWVhaa1lYbGZWMlZrYm1WelpHRjVBQUFBQU9EKy8vL1UvUC8vQUFBQkJoQUFBQUFnQUFBQUJBQUFBQUFBQUFBT0FBQUFabUYyWkdGNVgxUjFaWE5rWVhrQUFCRC8vLzhFL2YvL0FBQUJCaEFBQUFBZ0FBQUFCQUFBQUFBQUFBQVBBQUFBWm1GMlpHRjVYMVJvZFhKelpHRjVBRUQvLy84MC9mLy9BQUFCQmhBQUFBQWdBQUFBQkFBQUFBQUFBQUFOQUFBQVptRjJaR0Y1WDFOMWJtUmhlUUFBQUhELy8vOWsvZi8vQUFBQkJoQUFBQUFnQUFBQUJBQUFBQUFBQUFBUEFBQUFabUYyWkdGNVgxTmhkSFZ5WkdGNUFLRC8vLytVL2YvL0FBQUJCaEFBQUFBZ0FBQUFCQUFBQUFBQUFBQU5BQUFBWm1GMlpHRjVYMDF2Ym1SaGVRQUFBTkQvLy8vRS9mLy9BQUFCQmhBQUFBQWtBQUFBQkFBQUFBQUFBQUFOQUFBQVptRjJaR0Y1WDBaeWFXUmhlUUFBQUFRQUJBQUVBQUFBK1AzLy93QUFBUUlRQUFBQUtBQUFBQVFBQUFBQUFBQUFGd0FBQUdOeVpXRjBaV1JmWm1seWMzUmZaR0Y1YzE5a2FXWm1BUFQ5Ly84QUFBQUJRQUFBQURqKy8vOEFBQUVDRUFBQUFDZ0FBQUFFQUFBQUFBQUFBQlFBQUFCbWFYSnpkRjlzWVhOMFgyUmhlWE5mWkdsbVpnQUFBQUEwL3YvL0FBQUFBVUFBQUFCNC92Ly9BQUFCQWhBQUFBQWNBQUFBQkFBQUFBQUFBQUFJQUFBQVpHOXZjbk4wWlhBQUFBQUFhUDcvL3dBQUFBRkFBQUFBclA3Ly93QUFBUUlRQUFBQUdBQUFBQVFBQUFBQUFBQUFCZ0FBQUhKbFptbHNiQUFBbVA3Ly93QUFBQUZBQUFBQTNQNy8vd0FBQVFJUUFBQUFIQUFBQUFRQUFBQUFBQUFBQ1FBQUFIQmhjR1Z5YkdWemN3QUFBTXorLy84QUFBQUJRQUFBQUJELy8vOEFBQUVERUFBQUFCZ0FBQUFFQUFBQUFBQUFBQWNBQUFCdmNtUm1jbVZ4QUhMLy8vOEFBQUlBUFAvLy93QUFBUU1RQUFBQUhBQUFBQVFBQUFBQUFBQUFDQUFBQUdGMloyOXlaR1Z5QUFBQUFLTC8vLzhBQUFJQWJQLy8vd0FBQVFNUUFBQUFIQUFBQUFRQUFBQUFBQUFBQ2dBQUFHVmpiR2xqYTNKaGRHVUFBTkwvLy84QUFBSUFuUC8vL3dBQUFRTVFBQUFBSUFBQUFBUUFBQUFBQUFBQUNRQUFBR1Z2Y0dWdWNtRjBaUUFHQUFnQUJnQUdBQUFBQUFBQ0FORC8vLzhBQUFFQ0VBQUFBQmdBQUFBRUFBQUFBQUFBQUFVQUFBQmxjMlZ1ZEFBQUFMei8vLzhBQUFBQlFBQUFBQkFBRkFBSUFBWUFCd0FNQUFBQUVBQVFBQUFBQUFBQkFoQUFBQUFrQUFBQUJBQUFBQUFBQUFBSUFBQUFjbVYwWVdsdVpXUUFBQUFBQ0FBTUFBZ0FCd0FJQUFBQUFBQUFBVUFBQUFBQUFBQUEAGCBwYXJxdWV0LWNwcC1hcnJvdyB2ZXJzaW9uIDIxLjAuMBn8FxwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAABwAAAAbLQAAUEFSMQ=="
+            }
+          },
+          "metadata": {}
+        }
+      ],
+      "id": "BkrIdoMpCk9c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "dhW9FGq5Ck9c",
+        "outputId": "29ef0b32-2cf8-4e31-a411-b86f68caf81f"
+      },
+      "source": [
+        "def split_datasets(df):\n",
+        "    y=df.pop(\"retained\")\n",
+        "    X_pre = df\n",
+        "    y_pre = y.to_numpy().reshape(len(y),1)\n",
+        "    feature_names = list(X_pre.columns)\n",
+        "    X= np.concatenate((y_pre,X_pre),axis=1)\n",
+        "    np.random.shuffle(X)\n",
+        "    train,validation,test=np.split(X,[int(.7*len(X)),int(.85*len(X))])\n",
+        "    return feature_names,train,validation,test"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "dhW9FGq5Ck9c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "S-AYKRVjCk9c",
+        "outputId": "d0b9cc8e-d339-4e58-ef83-29414832bc63"
+      },
+      "source": [
+        "feature_names,train,validation,test = split_datasets(storedata)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "S-AYKRVjCk9c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Z6USRB9KCk9c",
+        "outputId": "f517dbdb-c0e4-460b-ef9a-ed0bdfc1c32d"
+      },
+      "source": [
+        "pd.DataFrame(train).to_csv(f\"s3://{default_bucket}/data/train/train.csv\",header=False,index=False)\n",
+        "pd.DataFrame(validation).to_csv(f\"s3://{default_bucket}/data/validation/validation.csv\",header=False,index=False)\n",
+        "pd.DataFrame(test).to_csv(f\"s3://{default_bucket}/data/test/test.csv\",header=False,index=False)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "Z6USRB9KCk9c"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "0I6risMHCk9d"
+      },
+      "source": [
+        "**Hyperparameter Tuning**"
+      ],
+      "id": "0I6risMHCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "phroR-opCk9d",
+        "outputId": "f77e1e7a-81d2-4b0a-b89f-a1eb3031307f"
+      },
+      "source": [
+        "s3_input_train = TrainingInput(\n",
+        "    s3_data=f\"s3://{default_bucket}/data/train/\",content_type=\"csv\")\n",
+        "s3_input_validation = TrainingInput(\n",
+        "    s3_data=f\"s3://{default_bucket}/data/validation/\",content_type=\"csv\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "phroR-opCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "ZL39ayDzCk9d",
+        "outputId": "dcb82704-867f-420a-96c1-0cf41f35ba42"
+      },
+      "source": [
+        "fixed_hyperparameters = {\n",
+        "    \"eval_metric\":\"auc\",\n",
+        "    \"objective\":\"binary:logistic\",\n",
+        "    \"num_round\":\"100\",\n",
+        "    \"rate_drop\":\"0.3\",\n",
+        "    \"tweedie_variance_power\":\"1.4\"\n",
+        "}"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "ZL39ayDzCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "dxDpvtXMCk9d",
+        "outputId": "bed1c808-1b5e-4d93-da21-42cacedfd30d"
+      },
+      "source": [
+        "sess = sagemaker.Session()\n",
+        "container = sagemaker.image_uris.retrieve(\"xgboost\",region,\"0.90-2\")\n",
+        "\n",
+        "estimator = sagemaker.estimator.Estimator(\n",
+        "    container,\n",
+        "    role,\n",
+        "    instance_count=1,\n",
+        "    hyperparameters=fixed_hyperparameters,\n",
+        "    instance_type=\"ml.m4.xlarge\",\n",
+        "    output_path=\"s3://{}/output\".format(default_bucket),\n",
+        "    sagemaker_session=sagemaker_session\n",
+        ")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "sagemaker.config INFO - Applied value from config key = SageMaker.PythonSDK.Modules.Session.DefaultS3Bucket\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "sagemaker.config INFO - Applied value from config key = SageMaker.PythonSDK.Modules.Session.DefaultS3ObjectKeyPrefix\n"
+        },
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "dxDpvtXMCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "gXTGgF6GCk9d",
+        "outputId": "0312c025-b32c-4c07-ee4e-70d93a81b2b4"
+      },
+      "source": [
+        "from sagemaker.tuner import ContinuousParameter, IntegerParameter\n",
+        "\n",
+        "hyperparameter_ranges = {\n",
+        "    \"eta\": ContinuousParameter(0, 1),\n",
+        "    \"min_child_weight\": ContinuousParameter(1, 10),\n",
+        "    \"alpha\": ContinuousParameter(0, 2),\n",
+        "    \"max_depth\": IntegerParameter(1, 10),\n",
+        "}"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "gXTGgF6GCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "50Svy4kPCk9d",
+        "outputId": "03279fad-f36c-4e02-b574-eaf5ecd67616"
+      },
+      "source": [
+        "\n",
+        "objective_metric_name = \"validation:auc\""
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "50Svy4kPCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "5Nq83PkVCk9d",
+        "outputId": "1e877f13-d6fb-478d-8151-7ca76faacab0"
+      },
+      "source": [
+        "from sagemaker.tuner import HyperparameterTuner\n",
+        "\n",
+        "tuner = HyperparameterTuner(\n",
+        "    estimator,\n",
+        "    objective_metric_name,\n",
+        "    hyperparameter_ranges,\n",
+        "    max_jobs=10,\n",
+        "    max_parallel_jobs=2\n",
+        ")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "5Nq83PkVCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "sFJnoyiNCk9d",
+        "outputId": "2d93a799-b3bf-4d6f-e63c-8458b94bc573"
+      },
+      "source": [
+        "tuner.fit({\n",
+        "    \"train\":s3_input_train,\n",
+        "    \"validation\":s3_input_validation\n",
+        "    },include_cls_metadata=False)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "."
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "!"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "\n"
+        },
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "sFJnoyiNCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "5M9kLnKlCk9d",
+        "outputId": "9dce54f7-004c-411e-b5f1-7648a8130e41"
+      },
+      "source": [
+        "tuning_job_result = boto3.client(\"sagemaker\").describe_hyper_parameter_tuning_job(\n",
+        "    HyperParameterTuningJobName=tuner.latest_tuning_job.job_name\n",
+        ")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "5M9kLnKlCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "bSUlSt7vCk9d",
+        "outputId": "da906d01-6a14-49c8-d74f-5ddc28a99409"
+      },
+      "source": [
+        "job_count = tuning_job_result[\"TrainingJobStatusCounters\"][\"Completed\"]\n",
+        "print(\"%d training jobs have completed\" %job_count)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "10 training jobs have completed\n"
+        }
+      ],
+      "id": "bSUlSt7vCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "vP2F5J5NCk9d",
+        "outputId": "d4fb38ed-cff3-4bb2-d3e8-1c069ea277bc"
+      },
+      "source": [
+        "from pprint import pprint\n",
+        "\n",
+        "if tuning_job_result.get(\"BestTrainingJob\",None):\n",
+        "    print(\"Best Model found so far:\")\n",
+        "    pprint(tuning_job_result[\"BestTrainingJob\"])\n",
+        "else:\n",
+        "    print(\"No training jobs have reported results yet.\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Best Model found so far:\n{'CreationTime': datetime.datetime(2026, 1, 8, 4, 6, 48, tzinfo=tzlocal()),\n 'FinalHyperParameterTuningJobObjectiveMetric': {'MetricName': 'validation:auc',\n                                                 'Value': 0.9813860058784485},\n 'ObjectiveStatus': 'Succeeded',\n 'TrainingEndTime': datetime.datetime(2026, 1, 8, 4, 7, 25, tzinfo=tzlocal()),\n 'TrainingJobArn': 'arn:aws:sagemaker:us-east-2:072468085456:training-job/sagemaker-xgboost-260108-0402-006-7cb41cae',\n 'TrainingJobName': 'sagemaker-xgboost-260108-0402-006-7cb41cae',\n 'TrainingJobStatus': 'Completed',\n 'TrainingStartTime': datetime.datetime(2026, 1, 8, 4, 6, 52, tzinfo=tzlocal()),\n 'TunedHyperParameters': {'alpha': '1.0106291484081062',\n                          'eta': '0.33962296888614507',\n                          'max_depth': '4',\n                          'min_child_weight': '5.184510218585083'}}\n"
+        }
+      ],
+      "id": "vP2F5J5NCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "4ccQCxsiCk9d",
+        "outputId": "ca2b3892-808f-4256-e45a-c1d6fd9d7c39"
+      },
+      "source": [
+        "best_hyperparameters = tuning_job_result[\"BestTrainingJob\"][\"TunedHyperParameters\"]"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "4ccQCxsiCk9d"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "JWWC3Ha6Ck9d",
+        "outputId": "9d975107-9364-4bc1-dca9-d86c0948d31e"
+      },
+      "source": [
+        "best_hyperparameters"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "execute_result",
+          "execution_count": null,
+          "data": {
+            "text/plain": "{'alpha': '1.0106291484081062',\n 'eta': '0.33962296888614507',\n 'max_depth': '4',\n 'min_child_weight': '5.184510218585083'}",
+            "application/json": "{\"alpha\": \"1.0106291484081062\", \"eta\": \"0.33962296888614507\", \"max_depth\": \"4\", \"min_child_weight\": \"5.184510218585083\"}"
+          },
+          "metadata": {}
+        }
+      ],
+      "id": "JWWC3Ha6Ck9d"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "PZFjq2ATCk9e"
+      },
+      "source": [
+        "**XGBoost Model with SageMaker Debugger**"
+      ],
+      "id": "PZFjq2ATCk9e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "CRoKixzaCk9e",
+        "outputId": "71df6e6f-1a2d-43da-9ff7-52ebf4bc54cd"
+      },
+      "source": [
+        "hyperparameters = {**fixed_hyperparameters,**best_hyperparameters}\n",
+        "save_interval = 5\n",
+        "base_job_name = \"demo-smdebug-xgboost-churn-classification\""
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "CRoKixzaCk9e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "G2FdgwrkCk9e",
+        "outputId": "36ac4648-a7e1-4c57-c775-1f472f82efa0"
+      },
+      "source": [
+        "container = sagemaker.image_uris.retrieve(\"xgboost\",region,\"0.90-2\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "G2FdgwrkCk9e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "VPMiVSOnCk9e",
+        "outputId": "5cfcfe9b-a4db-4e7f-ea7c-24384acbaa26"
+      },
+      "source": [
+        "estimator = sagemaker.estimator.Estimator(\n",
+        "    container,\n",
+        "    role,\n",
+        "    base_job_name=base_job_name,\n",
+        "    instance_count=1,\n",
+        "    instance_type=\"ml.m4.xlarge\",\n",
+        "    output_path=\"s3://{}/output\".format(default_bucket),\n",
+        "    sagemaker_session=sess,\n",
+        "    hyperparameters=hyperparameters,\n",
+        "    max_run=1800,\n",
+        "    debugger_hook_config = DebuggerHookConfig(\n",
+        "        s3_output_path=f\"s3://{default_bucket}/debugger/\",  # Required\n",
+        "        collection_configs=[\n",
+        "            CollectionConfig(\n",
+        "                name=\"metrics\",\n",
+        "                parameters={\n",
+        "                    \"save_interval\": \"5\"\n",
+        "                }),\n",
+        "            CollectionConfig(\n",
+        "                name=\"feature_importance\", parameters={\"save_interval\": \"5\"}\n",
+        "            ),\n",
+        "            CollectionConfig(name=\"full_shap\", parameters={\"save_interval\": \"5\"}),\n",
+        "            CollectionConfig(name=\"average_shap\", parameters={\"save_interval\": \"5\"}),\n",
+        "        ]\n",
+        "    ),\n",
+        "    rules=[\n",
+        "        Rule.sagemaker(\n",
+        "            rule_configs.loss_not_decreasing(),\n",
+        "            rule_parameters={\n",
+        "                \"collection_names\": \"metrics\",\n",
+        "                \"num_steps\": \"10\",\n",
+        "            },\n",
+        "        ),\n",
+        "    ]\n",
+        ")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "VPMiVSOnCk9e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "0JKvtdeuCk9e",
+        "outputId": "942c99b3-f8d4-4ea9-83de-16992b1848ea"
+      },
+      "source": [
+        "estimator.fit(\n",
+        "        {\"train\":s3_input_train,\"validation\":s3_input_validation},wait=False\n",
+        "    )"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "0JKvtdeuCk9e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "XR1haCLJCk9e",
+        "outputId": "27cefa56-5e5a-405d-9b3c-a6ff5876329b"
+      },
+      "source": [
+        "for _ in range(36):\n",
+        "    job_name = estimator.latest_training_job.name\n",
+        "    client = estimator.sagemaker_session.sagemaker_client\n",
+        "    description = client.describe_training_job(TrainingJobName=job_name)\n",
+        "    training_job_status = description[\"TrainingJobStatus\"]\n",
+        "    rule_job_summary = estimator.latest_training_job.rule_job_summary()\n",
+        "    rule_evaluation_status = rule_job_summary[0][\"RuleEvaluationStatus\"]\n",
+        "    print(\n",
+        "        \"Training job status: {}, Rule Evaluation Status: {}\".format(\n",
+        "            training_job_status, rule_evaluation_status\n",
+        "        )\n",
+        "    )\n",
+        "    if training_job_status in [\"Completed\", \"Failed\"]:\n",
+        "        break\n",
+        "    time.sleep(10)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: InProgress, Rule Evaluation Status: InProgress\n"
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Training job status: Completed, Rule Evaluation Status: IssuesFound\n"
+        },
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "XR1haCLJCk9e"
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "EHtJT_crCk9e"
+      },
+      "source": [
+        "**Analyze Debugger Output**"
+      ],
+      "id": "EHtJT_crCk9e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "0_BmGN-aCk9e",
+        "outputId": "67ae2c91-467e-47bf-8d62-965d9b8dacfd"
+      },
+      "source": [
+        "estimator.latest_training_job.rule_job_summary()"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "execute_result",
+          "execution_count": null,
+          "data": {
+            "text/plain": "[{'RuleConfigurationName': 'LossNotDecreasing',\n  'RuleEvaluationJobArn': 'arn:aws:sagemaker:us-east-2:072468085456:processing-job/demo-smdebug-xgboost-churn-LossNotDecreasing-abbed85d',\n  'RuleEvaluationStatus': 'IssuesFound',\n  'StatusDetails': 'RuleEvaluationConditionMet: Evaluation of the rule LossNotDecreasing at step 30 resulted in the condition being met\\n',\n  'LastModifiedTime': datetime.datetime(2026, 1, 8, 4, 16, 0, 556000, tzinfo=tzlocal())}]"
+          },
+          "metadata": {}
+        }
+      ],
+      "id": "0_BmGN-aCk9e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "vGAQ15b7Ck9e",
+        "outputId": "3541943a-772c-4421-eb66-58c907e1a75a"
+      },
+      "source": [
+        "# Get the S3 path where debugger artifacts are stored\n",
+        "s3_output_path = estimator.latest_job_debugger_artifacts_path()\n",
+        "\n",
+        "print(f\"Debugger artifacts path: {s3_output_path}\")\n",
+        "\n",
+        "# Note: Due to protobuf compatibility issues with smdebug,\n",
+        "# we'll work directly with the artifacts in S3 or use alternative analysis methods\n",
+        "# The debugger data has been collected and is available at the path above"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Debugger artifacts path: s3://amazon-sagemaker-072468085456-us-east-2-czpctb61w8ydnt/debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output\n"
+        },
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "vGAQ15b7Ck9e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "7ZKP2PFxCk9k",
+        "outputId": "6b7e40da-b171-4a48-84cc-876d2734825e"
+      },
+      "source": [
+        "# List files in the debugger output path to see what artifacts are available\n",
+        "s3_client = boto3.client('s3')\n",
+        "\n",
+        "# Parse the S3 path\n",
+        "bucket_name = s3_output_path.split('/')[2]\n",
+        "prefix = '/'.join(s3_output_path.split('/')[3:])\n",
+        "\n",
+        "print(f\"Listing debugger artifacts in: s3://{bucket_name}/{prefix}\\n\")\n",
+        "\n",
+        "try:\n",
+        "    # List objects in the S3 path\n",
+        "    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix, MaxKeys=20)\n",
+        "\n",
+        "    if 'Contents' in response:\n",
+        "        print(f\"Found {len(response['Contents'])} files (showing first 20):\\n\")\n",
+        "        for obj in response['Contents']:\n",
+        "            print(f\"  - {obj['Key']}\")\n",
+        "    else:\n",
+        "        print(\"No debugger artifacts found at this location.\")\n",
+        "except Exception as e:\n",
+        "    print(f\"Error listing S3 objects: {e}\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Listing debugger artifacts in: s3://amazon-sagemaker-072468085456-us-east-2-czpctb61w8ydnt/debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output\n\nFound 20 files (showing first 20):\n\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/collections/000000000/worker_0_collections.json\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000000/000000000000_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000005/000000000005_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000010/000000000010_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000015/000000000015_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000020/000000000020_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000025/000000000025_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000030/000000000030_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000035/000000000035_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000040/000000000040_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000045/000000000045_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000050/000000000050_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000055/000000000055_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000060/000000000060_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000065/000000000065_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000070/000000000070_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000075/000000000075_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000080/000000000080_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000085/000000000085_worker_0.tfevents\n  - debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output/events/000000000090/000000000090_worker_0.tfevents\n"
+        }
+      ],
+      "id": "7ZKP2PFxCk9k"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "qcQRBP_eCk9k",
+        "outputId": "b68a61d2-ab40-41a4-9beb-5d3f71217e17"
+      },
+      "source": [
+        "# Alternative approach: Calculate SHAP values directly using the trained model\n",
+        "# Since we can't access debugger artifacts via smdebug, we'll compute SHAP values manually\n",
+        "\n",
+        "print(\"Due to smdebug compatibility issues, we'll compute SHAP values directly.\")\n",
+        "print(\"This requires downloading the trained model and using the shap library.\\n\")\n",
+        "\n",
+        "# Get the model artifacts location\n",
+        "model_data = estimator.model_data\n",
+        "print(f\"Trained model location: {model_data}\")\n",
+        "\n",
+        "# Note: To compute SHAP values, you would need to:\n",
+        "# 1. Download and load the trained XGBoost model\n",
+        "# 2. Prepare a sample dataset\n",
+        "# 3. Use shap.TreeExplainer to compute SHAP values\n",
+        "#\n",
+        "# Example workflow (for reference):\n",
+        "# import xgboost as xgb\n",
+        "# model = xgb.Booster()\n",
+        "# model.load_model('path_to_model')\n",
+        "# explainer = shap.TreeExplainer(model)\n",
+        "# shap_values = explainer.shap_values(X_sample)\n",
+        "\n",
+        "print(\"\\nThe debugger collected SHAP data during training, which is stored at:\")\n",
+        "print(s3_output_path)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Due to smdebug compatibility issues, we'll compute SHAP values directly.\nThis requires downloading the trained model and using the shap library.\n\nTrained model location: s3://amazon-sagemaker-072468085456-us-east-2-czpctb61w8ydnt/output/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/output/model.tar.gz\n\nThe debugger collected SHAP data during training, which is stored at:\ns3://amazon-sagemaker-072468085456-us-east-2-czpctb61w8ydnt/debugger/demo-smdebug-xgboost-churn-classificati-2026-01-08-04-13-12-671/debug-output\n"
+        }
+      ],
+      "id": "qcQRBP_eCk9k"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "kOTbJlJACk9k",
+        "outputId": "0f5d7ba2-dc4e-4987-b2d9-1f02eb5c55c1"
+      },
+      "source": [
+        "MAX_PLOTS = 35\n",
+        "\n",
+        "\n",
+        "def get_data(trial, tname):\n",
+        "    \"\"\"\n",
+        "    For the given tensor name, walks though all the iterations\n",
+        "    for which you have data and fetches the values.\n",
+        "    Returns the set of steps and the values.\n",
+        "    \"\"\"\n",
+        "    tensor = trial.tensor(tname)\n",
+        "    steps = tensor.steps()\n",
+        "    vals = [tensor.value(s) for s in steps]\n",
+        "    return steps, vals\n",
+        "\n",
+        "\n",
+        "def match_tensor_name_with_feature_name(tensor_name, feature_names=feature_names):\n",
+        "    feature_tag = tensor_name.split(\"/\")\n",
+        "    for ifeat, feature_name in enumerate(feature_names):\n",
+        "        if feature_tag[-1] == \"f{}\".format(str(ifeat)):\n",
+        "            return feature_name\n",
+        "    return tensor_name\n",
+        "\n",
+        "\n",
+        "def plot_collection(trial, collection_name, regex=\".*\", figsize=(8, 6)):\n",
+        "    \"\"\"\n",
+        "    Takes a `trial` and a collection name, and\n",
+        "    plots all tensors that match the given regex.\n",
+        "    \"\"\"\n",
+        "    fig, ax = plt.subplots(figsize=figsize)\n",
+        "    tensors = trial.collection(collection_name).tensor_names\n",
+        "    matched_tensors = [t for t in tensors if re.match(regex, t)]\n",
+        "    for tensor_name in islice(matched_tensors, MAX_PLOTS):\n",
+        "        steps, data = get_data(trial, tensor_name)\n",
+        "        ax.plot(steps, data, label=match_tensor_name_with_feature_name(tensor_name))\n",
+        "\n",
+        "    ax.legend(loc=\"center left\", bbox_to_anchor=(1, 0.5))\n",
+        "    ax.set_xlabel(\"Iteration\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        }
+      ],
+      "id": "kOTbJlJACk9k"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "EkaZJzNuCk9k",
+        "outputId": "6100fd6e-4453-4b02-a5a6-dbd67f6b2b05"
+      },
+      "source": [
+        "# Alternative: Get training metrics from CloudWatch/SageMaker Training Job\n",
+        "# Since trial object is not available, we'll retrieve metrics from the training job\n",
+        "\n",
+        "print(\"Retrieving training metrics from SageMaker training job...\\n\")\n",
+        "\n",
+        "# Get training job details\n",
+        "training_job_name = estimator.latest_training_job.name\n",
+        "sm_client = boto3.client('sagemaker')\n",
+        "\n",
+        "# Describe the training job\n",
+        "training_job_details = sm_client.describe_training_job(TrainingJobName=training_job_name)\n",
+        "\n",
+        "# Check if metrics are available\n",
+        "if 'FinalMetricDataList' in training_job_details:\n",
+        "    print(\"Final Training Metrics:\")\n",
+        "    print(\"-\" * 50)\n",
+        "    for metric in training_job_details['FinalMetricDataList']:\n",
+        "        print(f\"{metric['MetricName']}: {metric['Value']:.6f}\")\n",
+        "else:\n",
+        "    print(\"No final metrics found in training job.\")\n",
+        "\n",
+        "# Note: For detailed iteration-by-iteration metrics visualization,\n",
+        "# you would typically access CloudWatch Logs or use the debugger artifacts\n",
+        "# which requires the smdebug library we cannot use due to compatibility issues.\n",
+        "\n",
+        "print(f\"\\nTraining job status: {training_job_details['TrainingJobStatus']}\")\n",
+        "print(f\"Training time: {training_job_details.get('TrainingTimeInSeconds', 'N/A')} seconds\")"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {},
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": "Retrieving training metrics from SageMaker training job...\n\nFinal Training Metrics:\n--------------------------------------------------\nvalidation:auc: 0.981386\ntrain:auc: 0.990764\n\nTraining job status: Completed\nTraining time: 130 seconds\n"
+        }
+      ],
+      "id": "EkaZJzNuCk9k"
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3 (ipykernel)",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.10.14"
+    },
+    "colab": {
+      "provenance": [],
+      "include_colab_link": true
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
